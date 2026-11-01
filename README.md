@@ -56,6 +56,19 @@ pytest
 
 Tests use an in-memory SQLite database and override `DATABASE_URL`, so they never touch Neon.
 
+## Deploy (Vercel, from the dashboard)
+
+Vercel finds `app` in `app/main.py` automatically. `.python-version` pins Python 3.12 and
+`vercel.json` keeps tests, migrations and scripts out of the bundle.
+
+1. Run `alembic upgrade head` and `python -m scripts.seed` from your laptop against Neon first.
+2. Vercel dashboard: Add New → Project → import `Cloth-brand-backend`. Framework: FastAPI.
+3. Add environment variables: `DATABASE_URL` (pooled URL), `JWT_SECRET` (a new random value),
+   `JWT_EXPIRE_MINUTES`, `FRONTEND_URL`. `DATABASE_URL_DIRECT` and `R2_*` are not needed yet.
+4. Deploy. Open `https://<project>.vercel.app/health`, then `/docs`.
+
+The first request after idle time can take a few seconds (Vercel and Neon wake up).
+
 ## Layout
 
 ```

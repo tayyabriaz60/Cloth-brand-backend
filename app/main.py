@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
@@ -22,5 +23,12 @@ app.add_middleware(
 )
 
 register_error_handlers(app)
+
+
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    return RedirectResponse("/docs")
+
+
 app.include_router(health.router)
 app.include_router(auth.router)

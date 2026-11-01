@@ -97,6 +97,13 @@ def test_validation_error_has_stable_shape(client: TestClient) -> None:
     assert response.json()["code"] == "validation_error"
 
 
+def test_root_redirects_to_docs(client: TestClient) -> None:
+    response = client.get("/", follow_redirects=False)
+
+    assert response.status_code == 307
+    assert response.headers["location"] == "/docs"
+
+
 def test_health_runs_select_1(client: TestClient) -> None:
     response = client.get("/health")
 
