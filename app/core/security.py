@@ -1,6 +1,7 @@
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from functools import lru_cache
 
 import bcrypt
 import jwt
@@ -35,8 +36,13 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-# Used when the username does not exist, so a failed login takes the same time either way.
-DUMMY_PASSWORD_HASH = hash_password("timing-equaliser-not-a-real-password")
+@lru_cache
+def dummy_password_hash() -> str:
+    """Checked when the username does not exist, so a failed login takes the same time.
+
+    Computed lazily so bcrypt does not slow down serverless cold starts.
+    """
+    return hash_password("timing-equaliser-not-a-real-password")
 
 
 def create_access_token(user_id: uuid.UUID, shop_id: uuid.UUID, role: str) -> str:
