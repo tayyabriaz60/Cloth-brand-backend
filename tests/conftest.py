@@ -11,6 +11,12 @@ os.environ["DATABASE_URL"] = "postgresql+psycopg://test:test@127.0.0.1:1/never_u
 os.environ["DATABASE_URL_DIRECT"] = ""
 os.environ["JWT_SECRET"] = "test-only-secret-at-least-32-characters-long"
 os.environ["FRONTEND_URL"] = "http://localhost:5173"
+# Never pick up real R2 keys from a local .env during tests.
+os.environ["R2_ACCOUNT_ID"] = ""
+os.environ["R2_ACCESS_KEY_ID"] = ""
+os.environ["R2_SECRET_ACCESS_KEY"] = ""
+os.environ["R2_BUCKET"] = ""
+os.environ["R2_PUBLIC_BASE_URL"] = ""
 
 from collections.abc import Iterator  # noqa: E402
 
@@ -25,7 +31,7 @@ from app.core.db import get_db, get_health_db  # noqa: E402
 from app.core.rate_limit import login_limiter  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import Base, Shop, User  # noqa: E402
+from app.models import Base, Shop, ShopCounter, User  # noqa: E402
 from app.models.shop import ROLE_CASHIER, ROLE_OWNER  # noqa: E402
 
 OWNER_PASSWORD = "owner-pass-1"
@@ -88,9 +94,13 @@ def make_shop(db: Session, name_en: str) -> tuple[Shop, User, User]:
         password_hash=hash_password(CASHIER_PASSWORD),
         role=ROLE_CASHIER,
     )
-    db.add_all([owner, cashier])
+    db.add_all([owner, cashier, ShopCounter(shop_id=shop.id, last_bill_no=0)])
     db.commit()
     return shop, owner, cashier
+
+
+def auth_header(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
 
 
 def login(client: TestClient, username: str, password: str) -> str:
