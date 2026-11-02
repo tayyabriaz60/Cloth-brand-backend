@@ -1,0 +1,90 @@
+---
+description: Backend rules (FastAPI, SQLAlchemy 2, Neon Postgres, Vercel serverless, Cloudflare R2)
+globs: app/**/*.py,alembic/**/*.py,scripts/**/*.py,requirements.txt,vercel.json
+alwaysApply: false
+---
+
+# STACK
+Python 3.12, FastAPI, SQLAlchemy 2, Alembic, Pydantic v2, psycopg (v3),
+PyJWT, passlib[bcrypt], boto3 (R2, S3-compatible). Pin versions.
+
+# STRUCTURE
+app/
+  main.py          exposes `app = FastAPI()` (Vercel detects it)
+  core/            config.py (env), security.py, db.py, deps.py
+  models/          SQLAlchemy models
+  schemas/         Pydantic request/response models
+  routers/         thin HTTP layer only
+  services/        business logic (bill creation, stock, ledger)
+alembic/  scripts/seed.py  README.md  .env.example
+
+# LAYERS
+router (validate, auth, call service) -> service (rules, transactions) ->
+models. Routers never contain business logic. Services never read the
+request object.
+
+# SERVERLESS RULES (Vercel)
+- No SQLite in deployment. No writing files to disk. No background threads.
+- Engine: SQLAlchemy with NullPool, pool_pre_ping=True, sslmode=require.
+  App uses DATABASE_URL (Neon POOLED, host contains "-pooler").
+- Alembic uses DATABASE_URL_DIRECT if it exists, else DATABASE_URL.
+- NEVER run migrations at app startup. Migrations run from the developer's
+  laptop: `alembic upgrade head`.
+- Keep cold start small: import only what is needed, no heavy libraries.
+- GET /health pings the database.
+- CORS origins from env FRONTEND_URL (comma-separated). No wildcard in prod.
+
+# DATABASE
+- Every table: id (UUID), shop_id (FK, indexed), created_at, updated_at.
+- Money = Integer rupees. Quantity = Numeric(10,2). Never Float.
+- Add indexes on foreign keys and on (shop_id, created_at).
+- Stock = SUM(stock_movements.qty_change). Balance = SUM(ledger_entries).
+  Never store these as editable numbers.
+- Every query MUST filter by the current user's shop_id. Put this in a
+  shared helper/dependency so it cannot be forgotten.
+- Use transactions. A bill creation is ONE transaction: bill + items +
+  negative stock movements + udhaar ledger entry. All or nothing.
+- Idempotency: POST /bills with an existing UUID (same shop) returns the
+  existing bill, never creates a second one. Enforce with a unique constraint.
+- Bill numbers are sequential per shop; protect against races (unique
+  constraint + retry, or a counter row locked with SELECT ... FOR UPDATE).
+- Every migration must be reversible and reviewed before applying.
+
+# SECURITY
+- Passwords: bcrypt hashes only. JWT with expiry, secret from env.
+- Role checks via a dependency (require_owner, require_user). Cashier
+  responses must NOT contain cost_price, profit, or sales totals: use
+  separate response schemas, do not rely on the frontend to hide fields.
+- Validate everything with Pydantic. Reject negative quantities, negative
+  money, discount greater than subtotal, udhaar without a customer.
+- Never log passwords, tokens, connection strings, or R2 keys.
+- Never return stack traces to clients. Return a stable error shape:
+  {"code": "...", "message": "..."} with a correct HTTP status.
+- Rate-limit-sensitive routes (login): add simple attempt limiting.
+
+# R2 IMAGE UPLOADS
+- Browser uploads directly to R2 with a presigned PUT URL (Vercel request
+  bodies are small; never proxy image bytes through the API).
+- POST /uploads/presign: only image/webp, image/jpeg, image/png, max 300 KB,
+  URL valid 5 minutes, key = shops/{shop_id}/products/{uuid}.webp.
+- Only allow keys under the caller's own shop prefix.
+- App must still run if R2 env vars are missing (return a clear 503 for
+  upload routes only).
+
+# API DESIGN
+- Prefix /api. Plural nouns. Consistent pagination (limit/offset) for lists.
+- Response models are explicit Pydantic schemas (no returning ORM objects).
+- Use proper status codes (201 create, 404, 409 conflict, 422 validation).
+- Keep OpenAPI docs accurate (/docs). Add short descriptions.
+
+# TESTING
+- pytest for services: bill creation (stock + ledger), idempotency,
+  cashier field hiding, shop isolation. Use a test database, never Neon prod.
+
+# DEFINITION OF DONE
+1. App starts locally; /docs loads; /health returns ok.
+2. `alembic upgrade head` works on an empty database.
+3. Seed script is idempotent (safe to run twice).
+4. Tests pass. No unused imports. Type hints on all functions.
+5. .env.example updated (names only). No secrets in git.
+6. List files changed and the exact commands to run and test.

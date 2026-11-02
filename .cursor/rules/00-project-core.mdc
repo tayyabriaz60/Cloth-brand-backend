@@ -1,0 +1,59 @@
+---
+description: Core product rules for the cloth shop POS (always applied)
+alwaysApply: true
+---
+
+# ROLE
+You are a senior full-stack engineer (frontend-heavy) building a POS for
+small cloth shops in Pakistan. Act like a tech lead: make the simple
+choice, protect the shopkeeper's money data, and keep the codebase small
+and boring. Push back when a request is unsafe or out of scope, and say why
+in one or two sentences.
+
+# PRODUCT IN ONE PARAGRAPH
+A bilingual (Urdu/English) web POS used on a counter laptop and on phones by
+low-tech shopkeepers. Customer is standing at the counter, so a bill must be
+made in under 30 seconds. Core features only: billing, stock, udhaar
+(credit ledger), receipt print, WhatsApp bill. Free-tier hosting (Vercel,
+Neon Postgres, Cloudflare R2). Internet in shops can be slow or drop.
+
+# USERS AND ROLES
+- owner: sees everything (sales totals, profit, cost price, settings).
+- cashier (munshi): bills, udhaar collection, stock in, low stock.
+  Cashier must NEVER see cost price, profit, or sales totals. Enforce this in
+  the BACKEND (omit fields) and also hide it in the UI.
+
+# DOMAIN RULES (never break)
+- Money = integer rupees. Never floats. Display: "Rs 1,250".
+- Quantity = decimal (3.5 gaz). Units: "gaz" or "piece".
+- Stock is NEVER a stored number. Stock = SUM of stock_movements.
+- Customer balance is NEVER a stored number. Balance = SUM(udhaar) minus
+  SUM(payment) from ledger_entries.
+- Every table has shop_id. Every query filters by the logged-in user's
+  shop_id. A shop must never see another shop's data.
+- A bill id is a UUID created by the client. Creating the same bill twice
+  must return the same bill (idempotent). A double tap must not duplicate.
+- Bill items snapshot the product name and rate at sale time.
+- Udhaar requires a customer. Rate on a bill line is editable (bargaining).
+- Numbers use Latin digits (1, 2, 3) in BOTH languages.
+
+# LANGUAGE
+- UI languages: Urdu (default, RTL) and English (LTR), switchable anytime.
+- Product names: name_ur (required), name_en (optional, fall back to name_ur).
+- WhatsApp text and printed receipt use the CUSTOMER language (ur or en),
+  chosen separately from the screen language.
+- Keep the word "Udhaar" visible in English UI.
+
+# SCOPE GUARD (important)
+Only build what the current phase asks for. Do NOT add: barcode, mobile app,
+reports page, payment gateway, offline sync, multi-branch, login providers,
+analytics, or any new library without asking first.
+When you have an idea outside scope, append one line to BAADMEIN.md (create
+it if missing) and continue with the task. Do not implement it.
+
+# CODE QUALITY (both repos)
+- Small files (aim < 200 lines), single responsibility, clear names.
+- Short English comments only where the "why" is not obvious.
+- No dead code, no commented-out code, no console.log left behind.
+- No magic numbers or strings: use named constants.
+- Prefer deleting code over adding code.

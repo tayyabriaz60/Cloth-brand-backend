@@ -1,0 +1,57 @@
+---
+description: Workflow, git safety, and secrets rules (always applied)
+alwaysApply: true
+---
+
+# SECRETS (hard rules)
+- NEVER open, print, summarize, or copy the contents of any .env file.
+- NEVER overwrite or recreate an existing .env. If .env.example changes,
+  tell me which variable NAMES to add by hand.
+- NEVER hardcode keys, passwords, connection strings, tokens, or R2 keys.
+- NEVER ask me to paste secrets into chat. If a secret is needed, tell me
+  the variable name and say "put it in your local .env".
+- .env, .env.*, .vercel, node_modules, .venv, dist must be in .gitignore.
+- If you ever see a secret in code or git history, stop and tell me.
+
+# WORKING IN PHASES
+- Work one phase at a time. Finish, run it, fix errors, commit, then STOP
+  and tell me exactly what to check. Wait for "next".
+- Before coding, state your plan in 3-6 lines. Ask at most ONE question, and
+  only if you are truly blocked. Otherwise state your assumption and go.
+- Prefer the smallest change that solves the problem. Do not refactor
+  unrelated code. Do not rename or move files unless asked.
+- If a requirement is unclear or risky (money, stock, data loss), say so
+  before building it.
+
+# GIT SAFETY
+- Two separate repos:
+  Frontend: https://github.com/tayyabriaz60/Cloth-Brand.git
+  Backend:  https://github.com/tayyabriaz60/Cloth-brand-backend.git
+- Before the first push, check the remote. If it is NOT empty (for example an
+  older clothing-store project), STOP and tell me. Never overwrite it.
+- NEVER force-push. NEVER rewrite history. NEVER commit to main directly if
+  I ask for a branch.
+- Commit small and often with clear messages:
+  feat: ..., fix: ..., refactor: ..., chore: ..., docs: ...
+- Do not commit generated files, build output, or secrets.
+
+# DEPENDENCIES
+- Do not add a package without asking. If you think one is needed, explain
+  why in one sentence and wait.
+- Pin versions. Prefer packages that are small and well maintained.
+
+# DEPLOYMENT (Vercel)
+- Do NOT log in to Vercel or run deploy commands. Prepare the config and
+  list the env var NAMES; I will connect the repos in the Vercel dashboard.
+- Deploy order: backend first, then frontend, then set FRONTEND_URL on the
+  backend and redeploy it.
+- Free-tier reality: the backend may sleep and be slow on the first request.
+  Design for it (loading messages, retries), do not fight it.
+
+# COMMUNICATION
+- Reply in simple English. Keep answers short. No long essays.
+- At the end of each task give: (1) files changed, (2) exact commands to
+  run, (3) a 3-step way for me to test it, (4) anything you assumed.
+- Be honest. If something is not tested or you are unsure, say so.
+  Never claim "done" without running the build/tests.
+- Ideas outside the current phase go to BAADMEIN.md, one line each.
