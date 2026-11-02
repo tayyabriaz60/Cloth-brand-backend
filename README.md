@@ -42,7 +42,16 @@ Load demo data (safe to run twice):
 python -m scripts.seed
 ```
 
-Demo logins: `owner` / `owner123` and `cashier` / `cashier123`. **Change these before real use.**
+Demo logins: `owner` / `owner123` (display name Demo Owner) and
+`cashier` / `cashier123` (Demo Cashier). **Change these before real use.**
+
+```powershell
+python -m scripts.set_password owner
+```
+
+The script asks for the new password twice (nothing is echoed). Min 10 characters.
+
+Full HTTP contract for the frontend: [`docs/API.md`](docs/API.md). Interactive docs: `/docs`.
 
 Usernames are unique across all shops and stored lower-case; login ignores case and
 surrounding spaces.
