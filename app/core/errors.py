@@ -20,6 +20,10 @@ def not_found() -> AppError:
     return AppError(status.HTTP_404_NOT_FOUND, "not_found", "Not found")
 
 
+def forbidden(message: str = "Not allowed") -> AppError:
+    return AppError(status.HTTP_403_FORBIDDEN, "forbidden", message)
+
+
 def conflict(message: str = "Could not save") -> AppError:
     return AppError(status.HTTP_409_CONFLICT, "conflict", message)
 

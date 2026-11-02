@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 from uuid import uuid4
 
@@ -5,8 +6,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.time import today_karachi
 from app.models import Bill, StockMovement
-from tests.conftest import OWNER_PASSWORD, auth_header, login, make_shop
+from tests.conftest import CASHIER_PASSWORD, OWNER_PASSWORD, auth_header, login, make_shop
 from tests.helpers import add_customer, add_product, make_bill_body, post_bill
 
 
@@ -136,3 +138,38 @@ def test_bill_numbers_sequential_per_shop(client: TestClient, db: Session) -> No
     assert a1.json()["bill_no"] == 1
     assert a2.json()["bill_no"] == 2
     assert b1.json()["bill_no"] == 1
+
+
+def test_cashier_lists_only_today_bills(client: TestClient, db: Session) -> None:
+    shop, _, cashier = make_shop(db, "Alpha")
+    product = add_product(db, shop.id)
+    token = login(client, cashier.username, CASHIER_PASSWORD)
+    created = post_bill(client, token, make_bill_body(product.id, qty="1", rate=200))
+    today = today_karachi().isoformat()
+
+    listed = client.get("/api/bills", headers=auth_header(token))
+    listed_today = client.get(f"/api/bills?date={today}", headers=auth_header(token))
+
+    assert created.status_code == 201
+    assert listed.status_code == 200
+    assert listed.json()["items"][0]["id"] == created.json()["id"]
+    assert listed_today.status_code == 200
+    assert len(listed_today.json()["items"]) == 1
+
+
+def test_cashier_cannot_list_past_bills(client: TestClient, db: Session) -> None:
+    _shop, owner, cashier = make_shop(db, "Alpha")
+    yesterday = (today_karachi() - timedelta(days=1)).isoformat()
+    cashier_token = login(client, cashier.username, CASHIER_PASSWORD)
+    owner_token = login(client, owner.username, OWNER_PASSWORD)
+
+    cashier_past = client.get(f"/api/bills?date={yesterday}", headers=auth_header(cashier_token))
+    owner_past = client.get(f"/api/bills?date={yesterday}", headers=auth_header(owner_token))
+
+    assert cashier_past.status_code == 403
+    assert cashier_past.json() == {
+        "code": "forbidden",
+        "message": "Cashiers can only see today's bills",
+    }
+    assert owner_past.status_code == 200
+    assert owner_past.json()["items"] == []

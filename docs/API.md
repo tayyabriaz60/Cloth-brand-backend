@@ -271,6 +271,9 @@ Errors: `422 empty_items`, `422 udhaar_needs_customer`, `422 invalid_paid_amount
 
 Default `date` = today (Karachi). **200** `{"items": [ <BillOut>, ... ]}` (`warnings` is `[]` on list/get).
 
+- **Owner:** any Karachi date.
+- **Cashier:** only today. Omit `date`, or pass today's date. A date in the past (or any day that is not today) returns **403** `{"code":"forbidden","message":"Cashiers can only see today's bills"}`.
+
 ### GET /api/bills/{id}
 
 **200** one `BillOut`. **404 not_found**.
@@ -473,9 +476,13 @@ Role: **owner**. `{"is_active": false}`. Cannot deactivate yourself (`422 cannot
 
 ## Uploads
 
+Role: **owner** for every route in this section. Cashier gets **403** `{"code":"owner_only"}`.
+
 If any required `R2_*` variable is unset, upload routes return **503** `{"code":"r2_unavailable","message":"Image uploads are not configured"}`. Other routes still work.
 
 ### POST /api/uploads/presign
+
+Role: **owner**.
 
 ```json
 {"content_type": "image/webp", "product_id": "dddddddd-dddd-dddd-dddd-dddddddddddd"}
@@ -493,9 +500,11 @@ If any required `R2_*` variable is unset, upload routes return **503** `{"code":
 
 Browser PUTs the file to `upload_url` with the same `Content-Type`. URL is valid 5 minutes. Size is limited in the browser, not here.
 
-Errors: `422 invalid_content_type`, `404 not_found`, `503 r2_unavailable`.
+Errors: `403 owner_only`, `422 invalid_content_type`, `404 not_found`, `503 r2_unavailable`.
 
 ### POST /api/products/{id}/images
+
+Role: **owner**.
 
 ```json
 {"key": "shops/<shop_id>/products/<uuid>.webp"}
@@ -507,11 +516,11 @@ Key must start with `shops/<caller shop_id>/products/`. Max 3 images per product
 {"id": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee", "public_url": "https://images.example/...", "sort_order": 0}
 ```
 
-Errors: `422 invalid_key`, `422 image_limit`.
+Errors: `403 owner_only`, `422 invalid_key`, `422 image_limit`.
 
 ### DELETE /api/product-images/{id}
 
-**204**. **404 not_found**.
+Role: **owner**. **204**. **404 not_found**. `403 owner_only`.
 
 ---
 
@@ -533,6 +542,7 @@ Laptop script (not HTTP): `python -m scripts.set_password <username>` — asks f
 | 401 | not_authenticated | missing/bad token |
 | 401 | invalid_credentials | login |
 | 403 | owner_only | cashier hit an owner route |
+| 403 | forbidden | cashier asked for bills on a day other than today |
 | 404 | not_found | missing, or belongs to another shop |
 | 409 | conflict | username taken, or bill id clash |
 | 422 | validation_error | Pydantic (bad types/missing fields) |

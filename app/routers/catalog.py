@@ -56,17 +56,17 @@ def patch_product(_owner: OwnerUser, scope: Scope, product_id: UUID, body: Produ
     "/products/{product_id}/images",
     response_model=ImageOut,
     status_code=status.HTTP_201_CREATED,
-    summary="Attach an uploaded image to a product",
+    summary="Attach an uploaded image to a product (owner)",
 )
-def attach_image(scope: Scope, product_id: UUID, body: AttachImageIn) -> ImageOut:
+def attach_image(_owner: OwnerUser, scope: Scope, product_id: UUID, body: AttachImageIn) -> ImageOut:
     return uploads_service.attach_image(scope, product_id, body)
 
 
 @router.delete(
     "/product-images/{image_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Remove a product image",
+    summary="Remove a product image (owner)",
 )
-def delete_image(scope: Scope, image_id: UUID) -> None:
+def delete_image(_owner: OwnerUser, scope: Scope, image_id: UUID) -> None:
     uploads_service.delete_image(scope, image_id)
 

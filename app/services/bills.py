@@ -16,10 +16,11 @@ from app.core.constants import (
     REASON_SALE,
 )
 from app.core.deps import ShopScope
-from app.core.errors import conflict, unprocessable
+from app.core.errors import conflict, forbidden, unprocessable
 from app.core.money import percent_of, rupees_from_qty_rate, to_qty
 from app.core.time import db_day_range, today_karachi
 from app.models import Bill, BillItem, Customer, LedgerEntry, Product, ShopCounter, StockMovement
+from app.models.shop import ROLE_OWNER
 from app.schemas.sales import BillCreateIn, BillItemOut, BillOut
 from app.services.queries import stock_of
 from datetime import date
@@ -61,7 +62,10 @@ def get_bill(scope: ShopScope, bill_id: UUID) -> BillOut:
 
 
 def list_bills(scope: ShopScope, day: date | None) -> list[BillOut]:
-    start, end = db_day_range(scope.db, day or today_karachi())
+    target = day or today_karachi()
+    if scope.user.role != ROLE_OWNER and target != today_karachi():
+        raise forbidden("Cashiers can only see today's bills")
+    start, end = db_day_range(scope.db, target)
     rows = list(
         scope.db.scalars(
             scope.select(Bill)
