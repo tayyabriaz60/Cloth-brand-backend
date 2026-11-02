@@ -1,38 +1,60 @@
+import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.deps import ShopScope
 from app.core.security import create_access_token, hash_password
-from app.models import Customer
+from app.models import Customer, Shop, User
 from tests.conftest import CASHIER_PASSWORD, OWNER_PASSWORD, login, make_shop
 
 
-def test_same_username_and_password_in_two_shops_is_refused(
-    client: TestClient, db: Session
-) -> None:
-    make_shop(db, "Alpha")
-    make_shop(db, "Beta")
-
-    response = client.post(
-        "/api/auth/login", json={"username": "owner", "password": OWNER_PASSWORD}
+def test_username_cannot_be_reused_in_another_shop(db: Session) -> None:
+    _, owner_a, _ = make_shop(db, "Alpha")
+    shop_b = Shop(name_ur="بیٹا", name_en="Beta")
+    db.add(shop_b)
+    db.flush()
+    db.add(
+        User(
+            shop_id=shop_b.id,
+            name="Copycat",
+            username=owner_a.username,
+            password_hash=hash_password(OWNER_PASSWORD),
+            role="owner",
+        )
     )
 
-    assert response.status_code == 401
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
 
 
-def test_same_username_logs_into_the_shop_whose_password_matches(
-    client: TestClient, db: Session
-) -> None:
-    make_shop(db, "Alpha")
-    shop_b, owner_b, _ = make_shop(db, "Beta")
-    owner_b.password_hash = hash_password("beta-only-pass")
-    db.commit()
+def test_uppercase_username_is_rejected_by_the_database(db: Session) -> None:
+    shop, _, _ = make_shop(db, "Alpha")
+    db.add(
+        User(
+            shop_id=shop.id,
+            name="Shouty",
+            username="SHOUTY",
+            password_hash=hash_password(OWNER_PASSWORD),
+            role="cashier",
+        )
+    )
 
-    token = login(client, "owner", "beta-only-pass")
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
+
+
+def test_login_username_is_case_insensitive(client: TestClient, db: Session) -> None:
+    shop_a, owner_a, _ = make_shop(db, "Alpha")
+    make_shop(db, "Beta")
+
+    token = login(client, f"  {owner_a.username.upper()} ", OWNER_PASSWORD)
     body = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"}).json()
 
-    assert body["shop"]["id"] == str(shop_b.id)
-    assert body["user"]["id"] == str(owner_b.id)
+    assert body["user"]["id"] == str(owner_a.id)
+    assert body["shop"]["id"] == str(shop_a.id)
 
 
 def test_token_with_other_shop_id_is_rejected(client: TestClient, db: Session) -> None:

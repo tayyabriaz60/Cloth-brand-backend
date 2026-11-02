@@ -21,6 +21,11 @@ DEFAULT_PAPER_WIDTH = 80
 ROLE_OWNER = "owner"
 ROLE_CASHIER = "cashier"
 
+
+def normalize_username(username: str) -> str:
+    """Usernames are globally unique and stored lower-case."""
+    return username.strip().lower()
+
 JsonType = JSON().with_variant(JSONB(), "postgresql")
 
 
@@ -44,7 +49,8 @@ class User(ShopOwnedMixin, Base):
     __tablename__ = "users"
     __table_args__ = (
         CheckConstraint("role IN ('owner', 'cashier')", name="role_valid"),
-        UniqueConstraint("shop_id", "username"),
+        CheckConstraint("username = lower(username)", name="username_lowercase"),
+        UniqueConstraint("username"),
         Index("ix_users_shop_id_created_at", "shop_id", "created_at"),
     )
 

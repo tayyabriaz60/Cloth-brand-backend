@@ -21,7 +21,7 @@ from sqlalchemy.engine import Engine  # noqa: E402
 from sqlalchemy.orm import Session, sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
-from app.core.db import get_db  # noqa: E402
+from app.core.db import get_db, get_health_db  # noqa: E402
 from app.core.rate_limit import login_limiter  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.main import app  # noqa: E402
@@ -62,6 +62,7 @@ def client(db: Session) -> Iterator[TestClient]:
         yield db
 
     app.dependency_overrides[get_db] = _get_test_db
+    app.dependency_overrides[get_health_db] = _get_test_db
     login_limiter.clear()
     with TestClient(app) as test_client:
         yield test_client
@@ -76,7 +77,7 @@ def make_shop(db: Session, name_en: str) -> tuple[Shop, User, User]:
     owner = User(
         shop_id=shop.id,
         name=f"{name_en} Owner",
-        username="owner",
+        username=f"owner-{name_en.lower()}",
         password_hash=hash_password(OWNER_PASSWORD),
         role=ROLE_OWNER,
     )

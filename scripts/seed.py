@@ -11,7 +11,7 @@ from app.core.security import hash_password
 from app.models import Category, Customer, Product, Shop, StockMovement, User
 from app.models.catalog import UNIT_GAZ, UNIT_PIECE
 from app.models.ledger import REASON_OPENING
-from app.models.shop import ROLE_CASHIER, ROLE_OWNER
+from app.models.shop import ROLE_CASHIER, ROLE_OWNER, normalize_username
 
 SHOP_NAME_EN = "Demo Cloth House"
 SHOP_NAME_UR = "ڈیمو کلاتھ ہاؤس"
@@ -75,8 +75,10 @@ def _get_or_create_shop(db: Session) -> Shop:
 
 def _seed_users(db: Session, shop: Shop) -> int:
     created = 0
-    for name, username, password, role in DEMO_USERS:
-        exists = db.scalar(select(User).where(User.shop_id == shop.id, User.username == username))
+    for name, raw_username, password, role in DEMO_USERS:
+        username = normalize_username(raw_username)
+        # Usernames are global, so check every shop, not just this one.
+        exists = db.scalar(select(User).where(User.username == username))
         if exists is None:
             db.add(
                 User(

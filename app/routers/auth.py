@@ -5,6 +5,7 @@ from app.core.errors import AppError
 from app.core.rate_limit import login_limiter
 from app.core.security import create_access_token
 from app.models import Shop, User
+from app.models.shop import normalize_username
 from app.schemas.auth import LoginRequest, LoginResponse, MeResponse, ShopOut, UserOut
 from app.services.auth import authenticate
 
@@ -18,9 +19,9 @@ def _me(db: DbSession, user: User) -> MeResponse:
 
 @router.post("/login", response_model=LoginResponse, summary="Log in with username and password")
 def login(body: LoginRequest, request: Request, db: DbSession) -> LoginResponse:
-    username = body.username.strip()
+    username = normalize_username(body.username)
     client_ip = request.client.host if request.client else "unknown"
-    limit_key = f"{username.lower()}|{client_ip}"
+    limit_key = f"{username}|{client_ip}"
 
     if login_limiter.is_blocked(limit_key):
         raise AppError(
