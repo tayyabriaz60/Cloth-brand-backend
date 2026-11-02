@@ -7,7 +7,9 @@ from app.core.security import create_access_token
 from app.models import Shop, User
 from app.models.shop import normalize_username
 from app.schemas.auth import LoginRequest, LoginResponse, MeResponse, ShopOut, UserOut
+from app.schemas.users import ChangePasswordIn
 from app.services.auth import authenticate
+from app.services.users import change_password
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -46,3 +48,8 @@ def login(body: LoginRequest, request: Request, db: DbSession) -> LoginResponse:
 @router.get("/me", response_model=MeResponse, summary="Current user and their shop")
 def me(user: CurrentUser, db: DbSession) -> MeResponse:
     return _me(db, user)
+
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT, summary="Change own password")
+def change_own_password(user: CurrentUser, db: DbSession, body: ChangePasswordIn) -> None:
+    change_password(user, body.current_password, body.new_password, db)

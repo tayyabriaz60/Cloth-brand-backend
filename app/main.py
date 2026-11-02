@@ -4,7 +4,19 @@ from fastapi.responses import RedirectResponse
 
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
-from app.routers import auth, health
+from app.routers import (
+    auth,
+    bills,
+    catalog,
+    customers,
+    dashboard,
+    health,
+    ledger,
+    shop,
+    stock,
+    uploads,
+    users,
+)
 
 settings = get_settings()
 
@@ -32,3 +44,12 @@ def root() -> RedirectResponse:
 
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(catalog.router)
+app.include_router(customers.router)
+app.include_router(bills.router)
+app.include_router(stock.router)
+app.include_router(ledger.router)
+app.include_router(dashboard.router)
+app.include_router(shop.router)
+app.include_router(users.router)
+app.include_router(uploads.router)

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db import SessionLocal
 from app.core.security import hash_password
-from app.models import Category, Customer, Product, Shop, StockMovement, User
+from app.models import Category, Customer, Product, Shop, ShopCounter, StockMovement, User
 from app.models.catalog import UNIT_GAZ, UNIT_PIECE
 from app.models.ledger import REASON_OPENING
 from app.models.shop import ROLE_CASHIER, ROLE_OWNER, normalize_username
@@ -17,8 +17,8 @@ SHOP_NAME_EN = "Demo Cloth House"
 SHOP_NAME_UR = "ڈیمو کلاتھ ہاؤس"
 
 DEMO_USERS = (
-    ("Owner", "owner", "owner123", ROLE_OWNER),
-    ("Cashier", "cashier", "cashier123", ROLE_CASHIER),
+    ("Demo Owner", "owner", "owner123", ROLE_OWNER),
+    ("Demo Cashier", "cashier", "cashier123", ROLE_CASHIER),
 )
 
 CATEGORIES = (
@@ -90,6 +90,8 @@ def _seed_users(db: Session, shop: Shop) -> int:
                 )
             )
             created += 1
+        elif exists.name != name:
+            exists.name = name
     return created
 
 
@@ -158,6 +160,12 @@ def _seed_customers(db: Session, shop: Shop) -> int:
     return created
 
 
+def _seed_counter(db: Session, shop: Shop) -> None:
+    exists = db.get(ShopCounter, shop.id)
+    if exists is None:
+        db.add(ShopCounter(shop_id=shop.id, last_bill_no=0))
+
+
 def main() -> None:
     with SessionLocal() as db, db.begin():
         shop = _get_or_create_shop(db)
@@ -165,6 +173,7 @@ def main() -> None:
         categories = _seed_categories(db, shop)
         products = _seed_products(db, shop, categories)
         customers = _seed_customers(db, shop)
+        _seed_counter(db, shop)
 
     print(f"Seed done. New users: {users}, products: {products}, customers: {customers}.")
     print("=" * 64)
