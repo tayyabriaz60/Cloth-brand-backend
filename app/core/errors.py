@@ -16,6 +16,18 @@ class AppError(Exception):
         self.message = message
 
 
+def not_found() -> AppError:
+    return AppError(status.HTTP_404_NOT_FOUND, "not_found", "Not found")
+
+
+def conflict(message: str = "Could not save") -> AppError:
+    return AppError(status.HTTP_409_CONFLICT, "conflict", message)
+
+
+def unprocessable(code: str, message: str) -> AppError:
+    return AppError(status.HTTP_422_UNPROCESSABLE_CONTENT, code, message)
+
+
 def _error(status_code: int, code: str, message: str) -> JSONResponse:
     return JSONResponse(status_code=status_code, content={"code": code, "message": message})
 

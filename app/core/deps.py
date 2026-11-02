@@ -8,7 +8,7 @@ from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
-from app.core.errors import AppError
+from app.core.errors import AppError, not_found
 from app.core.security import decode_access_token
 from app.models import User
 from app.models.base import ShopOwnedMixin
@@ -69,6 +69,12 @@ class ShopScope:
 
     def get(self, model: type[ModelT], obj_id: uuid.UUID) -> ModelT | None:
         return self.db.scalar(self.select(model).where(model.id == obj_id))
+
+    def require(self, model: type[ModelT], obj_id: uuid.UUID) -> ModelT:
+        obj = self.get(model, obj_id)
+        if obj is None:
+            raise not_found()
+        return obj
 
 
 def get_shop_scope(db: DbSession, user: CurrentUser) -> ShopScope:
