@@ -1,7 +1,9 @@
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.core.rate_limit import MAX_LOGIN_FAILURES
+from app.core.security import DEFAULT_BCRYPT_ROUNDS, TEST_BCRYPT_ROUNDS, _bcrypt_rounds
 from tests.conftest import CASHIER_PASSWORD, login, make_shop
 
 
@@ -109,3 +111,9 @@ def test_health_runs_select_1(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "database": "ok"}
+
+
+def test_bcrypt_is_cheap_only_under_pytest(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert _bcrypt_rounds() == TEST_BCRYPT_ROUNDS
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    assert _bcrypt_rounds() == DEFAULT_BCRYPT_ROUNDS

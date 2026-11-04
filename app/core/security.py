@@ -1,3 +1,4 @@
+import os
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -10,6 +11,15 @@ from app.core.config import get_settings
 
 JWT_ALGORITHM = "HS256"
 BCRYPT_MAX_BYTES = 72
+DEFAULT_BCRYPT_ROUNDS = 12
+TEST_BCRYPT_ROUNDS = 4
+
+
+def _bcrypt_rounds() -> int:
+    # Pytest sets this while a test is running. Production never has it.
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return TEST_BCRYPT_ROUNDS
+    return DEFAULT_BCRYPT_ROUNDS
 
 
 @dataclass(frozen=True)
@@ -23,7 +33,7 @@ def hash_password(password: str) -> str:
     raw = password.encode("utf-8")
     if len(raw) > BCRYPT_MAX_BYTES:
         raise ValueError("Password is too long")
-    return bcrypt.hashpw(raw, bcrypt.gensalt()).decode("ascii")
+    return bcrypt.hashpw(raw, bcrypt.gensalt(rounds=_bcrypt_rounds())).decode("ascii")
 
 
 def verify_password(password: str, password_hash: str) -> bool:

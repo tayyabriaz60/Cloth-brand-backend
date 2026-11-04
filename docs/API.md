@@ -278,6 +278,9 @@ Default `date` = today (Karachi). **200** `{"items": [ <BillOut>, ... ]}` (`warn
 
 **200** one `BillOut`. **404 not_found**.
 
+- **Owner:** any bill of this shop.
+- **Cashier:** only a bill made today (Karachi). An older bill returns **403** `{"code":"forbidden","message":"Cashiers can only see today's bills"}`.
+
 ---
 
 ## Stock
@@ -542,7 +545,7 @@ Laptop script (not HTTP): `python -m scripts.set_password <username>` — asks f
 | 401 | not_authenticated | missing/bad token |
 | 401 | invalid_credentials | login |
 | 403 | owner_only | cashier hit an owner route |
-| 403 | forbidden | cashier asked for bills on a day other than today |
+| 403 | forbidden | cashier asked for bills on a day other than today (list or get by id) |
 | 404 | not_found | missing, or belongs to another shop |
 | 409 | conflict | username taken, or bill id clash |
 | 422 | validation_error | Pydantic (bad types/missing fields) |

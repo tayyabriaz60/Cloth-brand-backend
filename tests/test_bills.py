@@ -1,12 +1,12 @@
 from datetime import timedelta
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.time import today_karachi
+from app.core.time import db_day_range, today_karachi
 from app.models import Bill, StockMovement
 from tests.conftest import CASHIER_PASSWORD, OWNER_PASSWORD, auth_header, login, make_shop
 from tests.helpers import add_customer, add_product, make_bill_body, post_bill
@@ -173,3 +173,28 @@ def test_cashier_cannot_list_past_bills(client: TestClient, db: Session) -> None
     }
     assert owner_past.status_code == 200
     assert owner_past.json()["items"] == []
+
+
+def test_cashier_cannot_open_old_bill_by_id(client: TestClient, db: Session) -> None:
+    shop, owner, cashier = make_shop(db, "Alpha")
+    product = add_product(db, shop.id)
+    owner_token = login(client, owner.username, OWNER_PASSWORD)
+    cashier_token = login(client, cashier.username, CASHIER_PASSWORD)
+    created = post_bill(client, owner_token, make_bill_body(product.id, qty="1", rate=200))
+    bill_id = created.json()["id"]
+    bill = db.get(Bill, UUID(bill_id))
+    assert bill is not None
+    start, _ = db_day_range(db, today_karachi() - timedelta(days=1))
+    bill.created_at = start
+    db.commit()
+
+    cashier_old = client.get(f"/api/bills/{bill_id}", headers=auth_header(cashier_token))
+    owner_old = client.get(f"/api/bills/{bill_id}", headers=auth_header(owner_token))
+    today = post_bill(client, owner_token, make_bill_body(product.id, qty="1", rate=200, bill_id=uuid4()))
+    cashier_today = client.get(f"/api/bills/{today.json()['id']}", headers=auth_header(cashier_token))
+
+    assert cashier_old.status_code == 403
+    assert cashier_old.json()["code"] == "forbidden"
+    assert owner_old.status_code == 200
+    assert owner_old.json()["id"] == bill_id
+    assert cashier_today.status_code == 200
