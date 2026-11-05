@@ -54,7 +54,12 @@ def test_owner_adjust_success(client: TestClient, db: Session) -> None:
 
     response = client.post(
         "/api/stock/adjust",
-        json={"product_id": str(product.id), "qty_change": "-0.50", "note": "torn end"},
+        json={
+            "product_id": str(product.id),
+            "qty_change": "-0.50",
+            "adjust_reason": "damaged",
+            "note": "torn end",
+        },
         headers=auth_header(token),
     )
 
@@ -71,7 +76,12 @@ def test_cashier_cannot_adjust(client: TestClient, db: Session) -> None:
 
     response = client.post(
         "/api/stock/adjust",
-        json={"product_id": str(product.id), "qty_change": "-0.50", "note": "torn end"},
+        json={
+            "product_id": str(product.id),
+            "qty_change": "-0.50",
+            "adjust_reason": "damaged",
+            "note": "torn end",
+        },
         headers=auth_header(token),
     )
 
@@ -88,7 +98,7 @@ def test_adjust_without_note_rejected(client: TestClient, db: Session) -> None:
 
     missing = client.post(
         "/api/stock/adjust",
-        json={"product_id": str(product.id), "qty_change": "-0.50"},
+        json={"product_id": str(product.id), "qty_change": "-0.50", "adjust_reason": "damaged"},
         headers=headers,
     )
     empty = client.post(

@@ -19,6 +19,9 @@ def add_product(
     min_stock: Decimal = Decimal("5"),
     opening: Decimal = Decimal("10"),
     is_active: bool = True,
+    fabric_type: str | None = None,
+    color: str | None = None,
+    category_id: UUID | None = None,
 ) -> Product:
     product = Product(
         shop_id=shop_id,
@@ -30,6 +33,9 @@ def add_product(
         sale_price=sale_price,
         min_stock=min_stock,
         is_active=is_active,
+        fabric_type=fabric_type,
+        color=color,
+        category_id=category_id,
     )
     db.add(product)
     db.flush()
