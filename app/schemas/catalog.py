@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import Field
 
-from app.core.constants import UNITS
+from app.core.constants import COLOR_MAX, FABRIC_TYPE_MAX, UNITS
 from app.schemas.common import ORMModel, QtyOut
 
 
@@ -43,6 +43,8 @@ class ProductOut(ORMModel):
     stock: QtyOut
     is_low_stock: bool
     is_active: bool
+    fabric_type: str | None = None
+    color: str | None = None
 
 
 class OwnerProductOut(ProductOut):
@@ -68,6 +70,8 @@ class ProductWrite(ORMModel):
     category_id: UUID | None = None
     is_active: bool = True
     opening_stock: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=2)
+    fabric_type: str | None = Field(default=None, max_length=FABRIC_TYPE_MAX)
+    color: str | None = Field(default=None, max_length=COLOR_MAX)
 
 
 class ProductPatch(ORMModel):
@@ -80,6 +84,8 @@ class ProductPatch(ORMModel):
     min_stock: Decimal | None = Field(default=None, ge=0, max_digits=10, decimal_places=2)
     category_id: UUID | None = None
     is_active: bool | None = None
+    fabric_type: str | None = Field(default=None, max_length=FABRIC_TYPE_MAX)
+    color: str | None = Field(default=None, max_length=COLOR_MAX)
 
 
 class AttachImageIn(ORMModel):

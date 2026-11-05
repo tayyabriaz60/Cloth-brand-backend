@@ -5,8 +5,11 @@ from decimal import Decimal
 from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.constants import ADJUST_REASONS, REASON_ADJUST, SUPPLIER_NAME_MAX
 from app.models.base import Base, ShopOwnedMixin
 from app.models.catalog import QTY
+
+_ADJUST_REASON_LIST = ", ".join(f"'{value}'" for value in ADJUST_REASONS)
 
 REASON_OPENING = "opening"
 
@@ -20,7 +23,18 @@ class StockMovement(ShopOwnedMixin, Base):
         CheckConstraint(
             "reason IN ('sale', 'purchase', 'return', 'adjust', 'opening')", name="reason_valid"
         ),
+        CheckConstraint(
+            f"(reason = '{REASON_ADJUST}' AND adjust_reason IN ({_ADJUST_REASON_LIST}))"
+            f" OR (reason <> '{REASON_ADJUST}' AND adjust_reason IS NULL)",
+            name="adjust_reason_matches_reason",
+        ),
         Index("ix_stock_movements_shop_id_created_at", "shop_id", "created_at"),
+        Index(
+            "ix_stock_movements_shop_id_product_id_created_at",
+            "shop_id",
+            "product_id",
+            "created_at",
+        ),
     )
 
     product_id: Mapped[uuid.UUID] = mapped_column(
@@ -33,6 +47,8 @@ class StockMovement(ShopOwnedMixin, Base):
         Uuid, ForeignKey("suppliers.id", ondelete="RESTRICT"), index=True
     )
     note: Mapped[str | None] = mapped_column(String(300))
+    supplier_name: Mapped[str | None] = mapped_column(String(SUPPLIER_NAME_MAX))
+    adjust_reason: Mapped[str | None] = mapped_column(String(20))
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), index=True)
 
 

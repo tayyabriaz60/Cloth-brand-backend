@@ -86,6 +86,8 @@ def serialize_product(
         stock=stock,
         is_low_stock=stock < to_qty(product.min_stock),
         is_active=product.is_active,
+        fabric_type=product.fabric_type,
+        color=product.color,
     )
     if owner:
         return OwnerProductOut(**payload, cost_price=product.cost_price)
@@ -132,6 +134,8 @@ def create_product(scope: ShopScope, body: ProductWrite) -> OwnerProductOut:
         sale_price=body.sale_price,
         min_stock=to_qty(body.min_stock),
         is_active=body.is_active,
+        fabric_type=(body.fabric_type.strip() or None) if body.fabric_type else None,
+        color=(body.color.strip() or None) if body.color else None,
     )
     scope.db.add(product)
     scope.db.flush()
@@ -160,7 +164,9 @@ def patch_product(scope: ShopScope, product_id: UUID, body: ProductPatch) -> Own
     if "min_stock" in data and data["min_stock"] is not None:
         data["min_stock"] = to_qty(data["min_stock"])
     for field, value in data.items():
-        setattr(product, field, value.strip() if isinstance(value, str) else value)
+        if isinstance(value, str):
+            value = value.strip() or None
+        setattr(product, field, value)
     commit(scope)
     return get_product(scope, product.id)
 

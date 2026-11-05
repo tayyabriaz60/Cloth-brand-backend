@@ -4,6 +4,7 @@ from decimal import Decimal
 from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, Integer, Numeric, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.constants import COLOR_MAX, FABRIC_TYPE_MAX
 from app.models.base import Base, ShopOwnedMixin
 
 UNIT_GAZ = "gaz"
@@ -44,6 +45,8 @@ class Product(ShopOwnedMixin, Base):
     min_stock: Mapped[Decimal] = mapped_column(QTY, default=Decimal("0"), server_default="0")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     image_key: Mapped[str | None] = mapped_column(String(300))
+    fabric_type: Mapped[str | None] = mapped_column(String(FABRIC_TYPE_MAX))
+    color: Mapped[str | None] = mapped_column(String(COLOR_MAX))
 
 
 class ProductImage(ShopOwnedMixin, Base):

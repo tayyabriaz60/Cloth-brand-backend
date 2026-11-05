@@ -16,7 +16,7 @@ Quantities are strings with 2 decimal places (`"3.50"`). Money is integer rupees
 
 Cross-shop: if `product_id`, `customer_id`, `supplier_id`, `bill_id` or an image id does not belong to the caller’s shop, the API returns **404** `{"code":"not_found"}`. It does not say that the row exists elsewhere.
 
-Cashier responses never include `cost_price`, `profit`, `today_sales`, `today_received`, or `week_sales`. Bill `total` / `paid_amount` are the customer-facing amounts (not profit) and are returned to both roles on bill endpoints.
+Cashier responses never include `cost_price`, `unit_cost`, `profit`, `today_sales`, `today_received`, or `week_sales`. Bill `total` / `paid_amount` are the customer-facing amounts (not profit) and are returned to both roles on bill endpoints.
 
 ---
 
@@ -112,6 +112,8 @@ Role: both. Owner items include `cost_price`. Cashier items do not.
     "stock": "120.50",
     "is_low_stock": false,
     "is_active": true,
+    "fabric_type": "cotton",
+    "color": "white",
     "cost_price": 380
   }]
 }
@@ -136,7 +138,9 @@ Request:
   "min_stock": "20.00",
   "category_id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
   "is_active": true,
-  "opening_stock": "120.50"
+  "opening_stock": "120.50",
+  "fabric_type": "cotton",
+  "color": "white"
 }
 ```
 
@@ -285,9 +289,11 @@ Default `date` = today (Karachi). **200** `{"items": [ <BillOut>, ... ]}` (`warn
 
 ## Stock
 
-### GET /api/stock?q=
+Stock is always `SUM(stock_movements.qty_change)`. Movements are append-only. `is_low_stock` is `qty < min_stock`. `stock_status` filters: `out` (`qty <= 0`), `low` (`0 < qty < min_stock`), `ok` (`qty >= min_stock`). Gaz and piece totals are never added together.
 
-Active products with qty and low flag. Owner rows include `cost_price`.
+### GET /api/stock
+
+Query: `q` (name_ur, name_en, design_no), `category_id`, `fabric_type`, `color`, `unit` (`gaz`|`piece`), `stock_status` (`low`|`out`|`ok`). Active products only. Owner rows include `cost_price`.
 
 ```json
 {
@@ -299,10 +305,54 @@ Active products with qty and low flag. Owner rows include `cost_price`.
     "unit": "gaz",
     "qty": "120.50",
     "min_stock": "20.00",
-    "is_low_stock": false
+    "is_low_stock": false,
+    "fabric_type": "cotton",
+    "color": "white"
   }]
 }
 ```
+
+### GET /api/stock/summary
+
+Role: both. `totals_by_unit` is per unit. Owner `recent_*` rows include `unit_cost` (product last cost). Cashier rows omit it.
+
+```json
+{
+  "total_products": 12,
+  "low_stock_count": 1,
+  "out_of_stock_count": 1,
+  "totals_by_unit": {"gaz": "285.00", "piece": "12.00"},
+  "recent_movements": [],
+  "recent_purchases": []
+}
+```
+
+`recent_movements` and `recent_purchases` are the 10 newest rows (purchases filtered to `reason=purchase`) in the movement-row shape below.
+
+### GET /api/stock/movements
+
+Newest first. Query: `product_id`, `reason`, `adjust_reason`, `date_from`, `date_to` (Karachi dates, inclusive), `limit` (1–100, default 50), `offset`. `balance_after` is a running SUM per product over the **full** history (`created_at`, `id`), then filters are applied. Never stored. Owner rows include `unit_cost`. `ref` is the bill number for sales.
+
+```json
+{
+  "items": [{
+    "id": "44444444-4444-4444-4444-444444444444",
+    "created_at": "2026-11-02T12:00:00",
+    "local_date": "2026-11-02",
+    "product": {"id": "dddddddd-dddd-dddd-dddd-dddddddddddd", "name_ur": "لان پرنٹڈ", "name_en": "Printed Lawn", "unit": "gaz"},
+    "reason": "adjust",
+    "adjust_reason": "damaged",
+    "qty_change": "-5.00",
+    "balance_after": "285.00",
+    "user_name": "Demo Owner",
+    "supplier_name": null,
+    "note": "torn",
+    "ref": null
+  }]
+}
+```
+
+Errors: `404 not_found` (other-shop `product_id`).
 
 ### GET /api/stock/{product_id}/history
 
@@ -325,23 +375,58 @@ Newest first.
 
 ### POST /api/stock/purchase
 
-Role: owner, cashier. If `cost_price` is sent **and** the caller is owner, the product’s cost is updated. Cashier `cost_price` is ignored.
+Role: owner, cashier. If `cost_price` is sent **and** the caller is owner, the product’s cost is updated. Cashier `cost_price` is ignored. `supplier_name` and `note` are stored on the movement (not concatenated).
 
 ```json
 {"product_id": "dddddddd-dddd-dddd-dddd-dddddddddddd", "qty": "12.00", "cost_price": 380, "supplier_name": "Ali Mills", "note": "bale"}
 ```
 
-**201** a stock row (owner includes `cost_price`).
+**201** a stock row (owner includes `cost_price`). Errors: `404 not_found`.
 
 ### POST /api/stock/adjust
 
-Role: **owner**. `qty_change` may be negative; cannot be 0. `note` is required.
+Role: **owner**. `qty_change` may be negative; cannot be 0. `adjust_reason` and `note` are required. Resulting stock cannot go below zero.
+
+`adjust_reason`: `damaged` | `missing` | `measurement` | `supplier_return` | `count_correction`.
 
 ```json
-{"product_id": "dddddddd-dddd-dddd-dddd-dddddddddddd", "qty_change": "-0.50", "note": "torn end"}
+{"product_id": "dddddddd-dddd-dddd-dddd-dddddddddddd", "qty_change": "-0.50", "adjust_reason": "damaged", "note": "torn end"}
 ```
 
-**201** owner stock row. Errors: `403 owner_only`, `422 qty_change_zero`.
+**201** owner stock row. Errors: `403 owner_only`, `422 qty_change_zero`, `422 insufficient_stock`, `404 not_found`.
+
+### POST /api/stock/count
+
+Role: **owner**. Compares `counted_qty` to current stock in one transaction (product row locked on Postgres). If the difference is 0: **200** `{"changed": false}` and no write. Otherwise creates one `adjust` movement with `adjust_reason=count_correction` and returns it.
+
+```json
+{"product_id": "dddddddd-dddd-dddd-dddd-dddddddddddd", "counted_qty": "280.00", "note": "month end"}
+```
+
+**200** when changed:
+
+```json
+{
+  "changed": true,
+  "movement": {
+    "id": "44444444-4444-4444-4444-444444444444",
+    "created_at": "2026-11-02T12:00:00",
+    "local_date": "2026-11-02",
+    "product": {"id": "dddddddd-dddd-dddd-dddd-dddddddddddd", "name_ur": "لان پرنٹڈ", "name_en": "Printed Lawn", "unit": "gaz"},
+    "reason": "adjust",
+    "adjust_reason": "count_correction",
+    "qty_change": "-5.00",
+    "balance_after": "280.00",
+    "user_name": "Demo Owner",
+    "supplier_name": null,
+    "note": "month end",
+    "ref": null,
+    "unit_cost": 400
+  }
+}
+```
+
+Errors: `403 owner_only`, `404 not_found`.
 
 ---
 
